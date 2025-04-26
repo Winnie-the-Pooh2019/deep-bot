@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 # Константы и загрузка .env
 # ------------------------------------------------------------------------------
 load_dotenv()
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 
 # URL Ollama OpenAI-совместимого API
 OLLAMA_URL = os.getenv(
