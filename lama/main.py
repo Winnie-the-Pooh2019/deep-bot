@@ -1,8 +1,9 @@
 import logging
 import os
 from dotenv import load_dotenv
-import requests
 import re
+
+from ollama import chat
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -22,54 +23,37 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # ------------------------------------------------------------------------------
-# Константы и загрузка .env
+# Загрузка переменных окружения
 # ------------------------------------------------------------------------------
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-
-# URL Ollama OpenAI-совместимого API
-OLLAMA_URL = os.getenv(
-    "OLLAMA_URL",
-    "http://localhost:11434/v1/chat/completions"
-)
-
-# (Опционально) API-ключ, если вы его настроили в Ollama
-OLLAMA_API_KEY = os.getenv("OLLAMA_API_KEY")
-
-MODEL_NAME = os.getenv("MODEL_NAME")
-
+MODEL_NAME     = os.getenv("MODEL_NAME")
 
 # ------------------------------------------------------------------------------
-# Функция запроса к Ollama
+# Функция запроса к Ollama через библиотеку
 # ------------------------------------------------------------------------------
 def get_model_response(messages):
-    payload = {
-        "model": MODEL_NAME,
-        "messages": messages,
-        "temperature": 0.9,
-        "max_tokens": 10000,
-        "stream": False
-    }
-    headers = {"Content-Type": "application/json"}
-    if OLLAMA_API_KEY:
-        headers["Authorization"] = f"Bearer {OLLAMA_API_KEY}"
-
+    """
+    Вызывает ollama.chat вместо запроса через requests.
+    Возвращает сгенерированный текст или сообщение об ошибке.
+    """
     try:
-        response = requests.post(OLLAMA_URL, headers=headers, json=payload)
-        response.raise_for_status()
-        data = response.json()
+        # Вызываем chat API
+        response = chat(
+            model=MODEL_NAME,
+            messages=messages,
+            stream=False
+        )
+        # Извлекаем содержимое
+        # Библиотека позволяет обращаться как к dict, так и к атрибутам
+        content = response["message"]["content"].strip()
+        # Убираем теги <think>...</think>, если они есть
+        content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+        return content
 
-        if "choices" in data and data["choices"]:
-            content = data["choices"][0]["message"]["content"].strip()
-            content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-            return content
-        else:
-            logger.warning("Неверный формат ответа от Ollama: %s", data)
-            return "Ошибка: Неверный формат ответа от Ollama."
-    except requests.exceptions.RequestException as e:
-        logger.error("Ошибка при соединении с Ollama: %s", e)
+    except Exception as e:
+        logger.error("Ошибка при вызове Ollama: %s", e)
         return f"Ошибка соединения с Ollama: {e}"
-
 
 # ------------------------------------------------------------------------------
 # Хендлеры Telegram
@@ -81,7 +65,6 @@ async def start(update: Update, context: CallbackContext) -> None:
         "Здравствуйте! Вы обратились в приёмную комиссию КемГУ. Чем могу помочь?"
     )
 
-
 async def respond_to_user(update: Update, context: CallbackContext) -> None:
     user_text = update.message.text
     user_id = update.effective_user.id
@@ -92,6 +75,7 @@ async def respond_to_user(update: Update, context: CallbackContext) -> None:
     name = context.user_data["name"]
     logger.info("Пользователь %s задал вопрос: %s", user_id, user_text)
 
+    # Определяем имя пользователя по фразе "меня зовут ..."
     if name is None:
         match = re.search(r"меня\s+зовут\s+([А-ЯЁа-яёA-Za-z]+)", user_text, re.IGNORECASE)
         if match:
@@ -114,6 +98,7 @@ async def respond_to_user(update: Update, context: CallbackContext) -> None:
 
     content = get_model_response(history)
 
+    # Обновляем историю
     context.user_data["messages"].append({"role": "user", "content": user_text})
     context.user_data["messages"].append({"role": "assistant", "content": content})
 
@@ -122,7 +107,6 @@ async def respond_to_user(update: Update, context: CallbackContext) -> None:
 
     await update.message.reply_text(content)
     logger.info("Ответ бота пользователю %s: %s", user_id, content)
-
 
 # ------------------------------------------------------------------------------
 # Точка входа
@@ -133,7 +117,6 @@ def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, respond_to_user))
     logger.info("Бот запущен...")
     app.run_polling()
-
 
 if __name__ == "__main__":
     main()
