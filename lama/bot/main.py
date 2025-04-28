@@ -3,7 +3,7 @@ import os
 from dotenv import load_dotenv
 import re
 
-from ollama import chat
+from ollama import Client
 from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
@@ -28,6 +28,14 @@ logger = logging.getLogger(__name__)
 load_dotenv()
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 MODEL_NAME     = os.getenv("MODEL_NAME")
+OLLAMA_API_URL = os.getenv("OLLAMA_API_URL")
+
+try:
+    client = Client(host=OLLAMA_API_URL)
+except Exception as e:
+    logger.error("Ошибка при подключении к Ollama: %s", e)
+    exit(-1)
+
 
 # ------------------------------------------------------------------------------
 # Функция запроса к Ollama через библиотеку
@@ -39,7 +47,7 @@ def get_model_response(messages):
     """
     try:
         # Вызываем chat API
-        response = chat(
+        response = client.chat(
             model=MODEL_NAME,
             messages=messages,
             stream=False

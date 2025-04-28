@@ -5,7 +5,6 @@ WORKDIR /app
 
 # Устанавливаем зависимости
 COPY requirements.txt .
-COPY .env .
 COPY main.py .
 
 RUN python3 -m venv /app/.venv

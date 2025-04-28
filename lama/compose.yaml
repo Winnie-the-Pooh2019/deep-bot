@@ -2,25 +2,37 @@ version: "3.8"
 
 services:
   ollama:
-    image: docker.io/ollama/ollama:latest
+    build:
+      context: ./ollama
+      dockerfile: Dockerfile
     container_name: ollama
     ports:
-      - "11434:11434"
+      - "11434:11434"    # public API → nginx → Ollama
     volumes:
       - ollama-data:/root/.ollama
+    restart: unless-stopped
+
+  webui:
+    image: ghcr.io/open-webui/open-webui:git-09a81eb
+    expose:
+      - 8080/tcp
+    ports:
+      - "8080:8080"
     environment:
-      - OLLAMA_HOST=0.0.0.0
-      - OLLAMA_KEEP_ALIVE=24h
-    restart: always
+      - OLLAMA_BASE_URL=http://ollama:11434
+    volumes:
+      - open-webui-data:/app/backend/data
+    depends_on:
+      - ollama
 
   bot:
     build:
-      context: ./
+      context: ./bot
       dockerfile: Dockerfile
     container_name: telegram-bot
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - OLLAMA_API_URL=http://ollama:11434/api/chat
+      - OLLAMA_API_URL=http://ollama:11434
       - MODEL_NAME=${MODEL_NAME}
     depends_on:
       - ollama
@@ -28,3 +40,4 @@ services:
 
 volumes:
   ollama-data:
+  open-webui-data:
