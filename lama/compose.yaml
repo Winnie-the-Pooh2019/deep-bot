@@ -10,6 +10,8 @@ services:
       - "11434:11434"    # public API → nginx → Ollama
     volumes:
       - ollama-data:/root/.ollama
+    environment:
+      - MODEL_NAME=${MODEL_NAME}
     restart: unless-stopped
 
   webui:

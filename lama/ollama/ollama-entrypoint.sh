@@ -11,15 +11,12 @@ done
 # Pull the mistral model if not already present
 MODEL="${MODEL_NAME}"
 
-if ! ollama list | grep -q "$MODEL"; then
-  echo "Pulling mistral model..."
-  ollama pull "$MODEL"
+echo "==========================================="
+echo "------------------- ${MODEL_NAME} ----------------"
 
-else
-  echo "model already present."
-fi
+ollama pull "${MODEL_NAME}"
 
 sleep 10
-ollama run "$MODEL"
+ollama run "${MODEL_NAME}"
 
 wait
